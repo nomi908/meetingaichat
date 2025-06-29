@@ -11,6 +11,16 @@ async function registerUser(req, res) {
     return res.status(400).json({ error: 'Name, email, password, phone required.' });
   }
 
+  // ✅ Format phone number for E.164 (PK fallback)
+  let formattedPhone = phone.trim();
+  if (!formattedPhone.startsWith('+')) {
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '+92' + formattedPhone.slice(1);
+    } else {
+      return res.status(400).json({ error: 'Phone number must start with + or 0.' });
+    }
+  }
+
   try {
     // Check if user already exists
     let existingUser;
@@ -29,8 +39,8 @@ async function registerUser(req, res) {
       email,
       password,
       displayName: name,
-      phoneNumber: phone,
-      photoURL: profileImage || '', // If you want, Firebase Auth me bhi add ho sakta hai
+      phoneNumber: formattedPhone,
+      photoURL: profileImage || '', // Optional
     });
 
     // ✅ Firestore: store user data
@@ -41,8 +51,8 @@ async function registerUser(req, res) {
       await userDocRef.set({
         name,
         email,
-        phone,
-        profileImage: profileImage || '', // ✅ New field added
+        phone: formattedPhone,
+        profileImage: profileImage || '',
         createdAt: new Date().toISOString(),
       });
     }
@@ -68,7 +78,6 @@ async function googleLogin(req, res) {
   if (!idToken) return res.status(400).json({ error: 'ID token required.' });
 
   try {
-    // ✅ Verify ID Token
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     const { uid, email, name, picture } = decodedToken;
 
@@ -79,7 +88,7 @@ async function googleLogin(req, res) {
       await userDocRef.set({
         name: name || '',
         email: email || '',
-        profileImage: picture || '', // ✅ New field added for Google photo
+        profileImage: picture || '',
         createdAt: new Date().toISOString(),
       });
     }
