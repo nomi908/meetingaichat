@@ -11,18 +11,8 @@ async function registerUser(req, res) {
     return res.status(400).json({ error: 'Name, email, password, phone required.' });
   }
 
-  // ✅ Format phone number for E.164 (PK fallback)
-  let formattedPhone = phone.trim();
-  if (!formattedPhone.startsWith('+')) {
-    if (formattedPhone.startsWith('0')) {
-      formattedPhone = '+92' + formattedPhone.slice(1);
-    } else {
-      return res.status(400).json({ error: 'Phone number must start with + or 0.' });
-    }
-  }
-
   try {
-    // Check if user already exists
+    // ✅ Check if user already exists
     let existingUser;
     try {
       existingUser = await admin.auth().getUserByEmail(email);
@@ -34,14 +24,18 @@ async function registerUser(req, res) {
       return res.status(400).json({ error: 'Email already registered.' });
     }
 
-    // ✅ Create Firebase Auth user
-    const userRecord = await admin.auth().createUser({
+    // ✅ Ye part updated hai
+    const createUserData = {
       email,
       password,
       displayName: name,
-      phoneNumber: formattedPhone,
-      photoURL: profileImage || '', // Optional
-    });
+      phoneNumber: phone,
+    };
+    if (profileImage) {
+      createUserData.photoURL = profileImage;
+    }
+
+    const userRecord = await admin.auth().createUser(createUserData);
 
     // ✅ Firestore: store user data
     const userDocRef = db.collection('users').doc(userRecord.uid);
@@ -51,7 +45,7 @@ async function registerUser(req, res) {
       await userDocRef.set({
         name,
         email,
-        phone: formattedPhone,
+        phone,
         profileImage: profileImage || '',
         createdAt: new Date().toISOString(),
       });
@@ -60,7 +54,7 @@ async function registerUser(req, res) {
     res.status(201).json({
       message: 'User registered!',
       uid: userRecord.uid,
-      email
+      email,
     });
 
   } catch (err) {
@@ -68,6 +62,7 @@ async function registerUser(req, res) {
     res.status(500).json({ error: 'Register failed: ' + err.message });
   }
 }
+
 
 //
 // ✅ GOOGLE LOGIN HANDLER
